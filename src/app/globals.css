@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #0a0e17;
+  --bg2:        #111827;
+  --bg3:        #1a2235;
+  --border:     #1f2d45;
+  --text:       #e2e8f0;
+  --text2:      #8899b4;
+  --text3:      #4a5e7a;
+  --accent:     #3b82f6;
+  --accent2:    #60a5fa;
+  --ok:         #10b981;
+  --ok-bg:      #052e1e;
+  --warn:       #f59e0b;
+  --warn-bg:    #2d1f05;
+  --danger:     #ef4444;
+  --danger-bg:  #2d0808;
+  --radius:     10px;
+  --shadow:     0 4px 24px rgba(0,0,0,0.4);
+}
+
+html { font-size: 16px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Syne', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+input, select, button { font-family: inherit; }
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
