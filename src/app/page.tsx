@@ -38,15 +38,11 @@ function TarjetaUrgente({ r }: { r: Registro }) {
 
 // ── componente principal ────────────────────────────────────
 export default function Home() {
-  const [data, setData]       = useState<DashboardData | null>(null);
-  const [error, setError]     = useState('');
-  const [loading, setLoading] = useState(true);
+  const [data, setData]         = useState<DashboardData | null>(null);
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(true);
   const [busqueda, setBusqueda] = useState('');
-  const [filtro, setFiltro]   = useState<EstadoRegistro | 'todos'>('todos');
-  const [umbral1, setUmbral1] = useState('');
-  const [umbral2, setUmbral2] = useState('');
-  const [guardando, setGuardando] = useState(false);
-  const [msgUmbral, setMsgUmbral] = useState('');
+  const [filtro, setFiltro]     = useState<EstadoRegistro | 'todos'>('todos');
 
   const cargar = useCallback(async () => {
     if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('TU_URL')) {
@@ -59,8 +55,6 @@ export default function Home() {
       const res  = await fetch(APPS_SCRIPT_URL);
       const json = await res.json() as DashboardData;
       setData(json);
-      setUmbral1(String(json.umbral1));
-      setUmbral2(String(json.umbral2));
       setError('');
     } catch {
       setError('No se pudo conectar con Apps Script. Verifica la URL.');
@@ -75,21 +69,30 @@ export default function Home() {
   const registrosFiltrados = (data?.registros ?? [])
     .filter(r => filtro === 'todos' || r.estado === filtro)
     .filter(r => {
-      const q = busqueda.toLowerCase();
-      return !q || r.nombre.toLowerCase().includes(q) || r.programa.toLowerCase().includes(q) || r.correo.toLowerCase().includes(q);
+      const q = busqueda.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        (r.nombre ?? '').toLowerCase().includes(q) ||
+        (r.programa ?? '').toLowerCase().includes(q) ||
+        (r.correo ?? '').toLowerCase().includes(q) ||
+        (r.fechaVencimiento ?? '').toLowerCase().includes(q) ||
+        (r.notas ?? '').toLowerCase().includes(q)
+      );
     })
     .sort((a, b) => {
-      const orden = ['vencido','critico','proximo','ok','sin_fecha'];
-      return orden.indexOf(a.estado) - orden.indexOf(b.estado) ||
-             (a.diasRestantes ?? 999) - (b.diasRestantes ?? 999);
+      const orden = ['vencido', 'critico', 'proximo', 'ok', 'sin_fecha'];
+      return (
+        orden.indexOf(a.estado) - orden.indexOf(b.estado) ||
+        (a.diasRestantes ?? 999) - (b.diasRestantes ?? 999)
+      );
     });
 
   // Contadores
   const contadores = {
-    vencidos:  data?.registros.filter(r => r.estado === 'vencido').length  ?? 0,
-    criticos:  data?.registros.filter(r => r.estado === 'critico').length  ?? 0,
-    proximos:  data?.registros.filter(r => r.estado === 'proximo').length  ?? 0,
-    ok:        data?.registros.filter(r => r.estado === 'ok').length       ?? 0,
+    vencidos: data?.registros.filter(r => r.estado === 'vencido').length ?? 0,
+    criticos: data?.registros.filter(r => r.estado === 'critico').length ?? 0,
+    proximos: data?.registros.filter(r => r.estado === 'proximo').length ?? 0,
+    ok:       data?.registros.filter(r => r.estado === 'ok').length      ?? 0,
   };
 
   // Más urgentes (top 4 no-ok)
@@ -97,25 +100,6 @@ export default function Home() {
     .filter(r => r.estado !== 'ok' && r.estado !== 'sin_fecha' && r.diasRestantes !== null)
     .sort((a, b) => (a.diasRestantes ?? 999) - (b.diasRestantes ?? 999))
     .slice(0, 4);
-
-  const guardarUmbrales = async () => {
-    const u1 = parseInt(umbral1);
-    const u2 = parseInt(umbral2);
-    if (isNaN(u1) || isNaN(u2) || u1 < 1 || u2 < 1 || u2 >= u1) {
-      setMsgUmbral('❌ El umbral 1 debe ser mayor que el umbral 2 y ambos ≥ 1');
-      return;
-    }
-    setGuardando(true);
-    setMsgUmbral('');
-    try {
-      await fetch(`${APPS_SCRIPT_URL}?action=setUmbrales&umbral1=${u1}&umbral2=${u2}`);
-      setMsgUmbral('✅ Umbrales actualizados. Recarga para confirmar.');
-    } catch {
-      setMsgUmbral('❌ Error al guardar. Edítalos directamente en la hoja Config.');
-    } finally {
-      setGuardando(false);
-    }
-  };
 
   // ── render ────────────────────────────────────────────────
   if (loading) return (
@@ -167,16 +151,16 @@ export default function Home() {
       {/* ── CONTADORES ─────────────────────────────────── */}
       <section className={styles.contadores}>
         {[
-          { label: 'Vencidos',  val: contadores.vencidos,  cls: styles.danger, icon: '🔴' },
-          { label: 'Críticos',  val: contadores.criticos,  cls: styles.danger, icon: '🟠' },
-          { label: 'Próximos',  val: contadores.proximos,  cls: styles.warn,   icon: '🟡' },
-          { label: 'Al día',    val: contadores.ok,        cls: styles.ok,     icon: '🟢' },
+          { label: 'Vencidos', val: contadores.vencidos, cls: styles.danger, icon: '🔴', estado: 'vencido' as EstadoRegistro },
+          { label: 'Críticos', val: contadores.criticos, cls: styles.danger, icon: '🟠', estado: 'critico' as EstadoRegistro },
+          { label: 'Próximos', val: contadores.proximos, cls: styles.warn,   icon: '🟡', estado: 'proximo' as EstadoRegistro },
+          { label: 'Al día',   val: contadores.ok,       cls: styles.ok,     icon: '🟢', estado: 'ok'      as EstadoRegistro },
         ].map(c => (
-          <div key={c.label} className={styles.contador}
-               onClick={() => setFiltro(filtro === c.label.toLowerCase() as EstadoRegistro ? 'todos' :
-                 c.label === 'Vencidos' ? 'vencido' :
-                 c.label === 'Críticos' ? 'critico' :
-                 c.label === 'Próximos' ? 'proximo' : 'ok')}>
+          <div
+            key={c.label}
+            className={`${styles.contador} ${filtro === c.estado ? styles.contadorActivo : ''}`}
+            onClick={() => setFiltro(filtro === c.estado ? 'todos' : c.estado)}
+          >
             <span className={styles.contadorIcon}>{c.icon}</span>
             <span className={`${styles.contadorNum} ${c.cls}`}>{c.val}</span>
             <span className={styles.contadorLabel}>{c.label}</span>
@@ -199,14 +183,29 @@ export default function Home() {
         <div className={styles.tablaHeader}>
           <h2 className={styles.seccionTitulo}>📋 Todos los registros</h2>
           <div className={styles.controles}>
-            <input
-              className={styles.buscador}
-              type="text"
-              placeholder="Buscar nombre, programa o correo…"
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-            />
-            <select className={styles.filtro} value={filtro} onChange={e => setFiltro(e.target.value as EstadoRegistro | 'todos')}>
+            <div className={styles.buscadorWrap}>
+              <input
+                className={styles.buscador}
+                type="text"
+                placeholder="Buscar nombre, programa, fecha, notas…"
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+              />
+              {busqueda && (
+                <button
+                  className={styles.buscadorClear}
+                  onClick={() => setBusqueda('')}
+                  title="Limpiar búsqueda"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <select
+              className={styles.filtro}
+              value={filtro}
+              onChange={e => setFiltro(e.target.value as EstadoRegistro | 'todos')}
+            >
               <option value="todos">Todos los estados</option>
               <option value="vencido">Vencidos</option>
               <option value="critico">Críticos</option>
@@ -223,23 +222,24 @@ export default function Home() {
                 <th>#</th>
                 <th>Nombre</th>
                 <th>Programa</th>
-                <th>Correo</th>
                 <th>Vencimiento</th>
                 <th>Días</th>
                 <th>Estado</th>
                 <th>Avisos</th>
                 <th>Notas</th>
+                <th>Correo</th>
               </tr>
             </thead>
             <tbody>
               {registrosFiltrados.length === 0 ? (
-                <tr><td colSpan={9} className={styles.vacio}>Sin resultados</td></tr>
+                <tr>
+                  <td colSpan={9} className={styles.vacio}>Sin resultados</td>
+                </tr>
               ) : registrosFiltrados.map(r => (
                 <tr key={r.id} className={styles[`fila_${r.estado}`] ?? ''}>
                   <td className={styles.tdId}>{r.id}</td>
                   <td className={styles.tdNombre}>{r.nombre}</td>
                   <td className={styles.tdPrograma}>{r.programa}</td>
-                  <td className={styles.tdCorreo}>{r.correo}</td>
                   <td className={styles.tdFecha}>{r.fechaVencimiento}</td>
                   <td className={`${styles.tdDias} ${estadoClass(r.estado)}`}>
                     {diasLabel(r.diasRestantes)}
@@ -254,50 +254,13 @@ export default function Home() {
                     <span title="Aviso 5 días" className={r.aviso5enviado ? styles.avisoOn : styles.avisoOff}>5d</span>
                   </td>
                   <td className={styles.tdNotas}>{r.notas || '—'}</td>
+                  <td className={styles.tdCorreo}>{r.correo}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p className={styles.tablaFooter}>{registrosFiltrados.length} de {data?.total ?? 0} registros</p>
-      </section>
-
-      {/* ── CONFIG UMBRALES ────────────────────────────── */}
-      <section className={styles.seccion}>
-        <h2 className={styles.seccionTitulo}>⚙️ Configuración de umbrales</h2>
-        <div className={styles.configBox}>
-          <div className={styles.configFila}>
-            <label className={styles.configLabel}>
-              Primer aviso (días antes)
-              <span className={styles.configHint}>Actualmente: {data?.umbral1 ?? '—'} días</span>
-            </label>
-            <input
-              className={styles.configInput}
-              type="number" min="1" max="30"
-              value={umbral1}
-              onChange={e => setUmbral1(e.target.value)}
-            />
-          </div>
-          <div className={styles.configFila}>
-            <label className={styles.configLabel}>
-              Segundo aviso (días antes)
-              <span className={styles.configHint}>Actualmente: {data?.umbral2 ?? '—'} días</span>
-            </label>
-            <input
-              className={styles.configInput}
-              type="number" min="1" max="30"
-              value={umbral2}
-              onChange={e => setUmbral2(e.target.value)}
-            />
-          </div>
-          <button className={styles.btnGuardar} onClick={guardarUmbrales} disabled={guardando}>
-            {guardando ? 'Guardando…' : 'Guardar umbrales'}
-          </button>
-          {msgUmbral && <p className={styles.msgUmbral}>{msgUmbral}</p>}
-          <p className={styles.configNota}>
-            💡 También puedes editar estos valores directamente en la hoja <strong>Config</strong> del Google Sheet.
-          </p>
-        </div>
       </section>
 
     </main>
